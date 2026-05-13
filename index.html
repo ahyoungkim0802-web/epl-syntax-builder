@@ -255,7 +255,7 @@ ${text}
   try{
     const res=await fetch(WORKER_URL,{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:8192,system:systemPrompt,messages:[{role:'user',content:'위 본문을 분석해 지정된 JSON 형식으로만 응답하세요.'}]})
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:8192,system:systemPrompt,messages:[{role:'user',content:'위 본문을 분석해 지정된 JSON 형식으로만 응답하세요.'}]})
     });
     const data=await res.json();
     let raw='';
