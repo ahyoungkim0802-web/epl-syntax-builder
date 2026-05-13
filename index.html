@@ -175,10 +175,8 @@ textarea::placeholder{color:var(--ink-mute);font-style:italic}
   <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 32px;border-bottom:.5px solid var(--rule);flex-shrink:0">
     <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-mute)">EPL Syntax Lecture · <span id="pres-counter">1/1</span></div>
     <div style="display:flex;gap:10px;align-items:center">
-      <select id="pres-voice" style="border:none;border-bottom:.5px solid var(--rule);padding:4px 8px;font-family:'Noto Serif KR',serif;font-size:13px;background:transparent"></select>
-      <button class="btn btn-secondary" style="padding:8px 16px" onclick="prevSlide()">←</button>
-      <button class="btn btn-primary" style="padding:8px 16px" id="pres-play-btn" onclick="toggleAutoPlay()">▶ 자동 재생</button>
-      <button class="btn btn-secondary" style="padding:8px 16px" onclick="nextSlide()">→</button>
+      <button class="btn btn-secondary" style="padding:8px 16px" onclick="prevSlide()">← 이전</button>
+      <button class="btn btn-primary" style="padding:8px 16px" onclick="nextSlide()">다음 →</button>
       <button class="btn btn-secondary" style="padding:8px 16px" onclick="endPresentation()">✕ 닫기</button>
     </div>
   </div>
@@ -187,9 +185,12 @@ textarea::placeholder{color:var(--ink-mute);font-style:italic}
     <div id="pres-slide" style="max-width:1000px;width:100%"></div>
   </div>
   <!-- 하단 스크립트 -->
-  <div id="pres-script-bar" style="padding:20px 32px;border-top:.5px solid var(--rule);background:var(--paper-card);flex-shrink:0;max-height:30vh;overflow-y:auto">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:8px">Voice Script</div>
-    <div id="pres-script-text" style="font-family:'Noto Serif KR',serif;font-size:16px;line-height:1.8;color:var(--ink-soft)"></div>
+  <div id="pres-script-bar" style="padding:24px 40px;border-top:2px solid var(--accent);background:var(--paper-card);flex-shrink:0;max-height:35vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)">📖 이 스크립트를 읽으세요</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute)">Cmd+Shift+5 로 화면 녹화</div>
+    </div>
+    <div id="pres-script-text" style="font-family:'Noto Serif KR',serif;font-size:20px;line-height:2;color:var(--ink)"></div>
   </div>
 </div>
 
@@ -338,34 +339,13 @@ function startPresentation(){
   if(!currentResult||!currentResult.sentences.length){toast('먼저 분석을 실행해주세요.');return}
   presIdx=0;presAuto=false;
   document.getElementById('pres-overlay').style.display='flex';
-  document.getElementById('pres-play-btn').textContent='▶ 자동 재생';
-  loadVoices();
   renderSlide();
 }
 function endPresentation(){
   document.getElementById('pres-overlay').style.display='none';
   presAuto=false;
-  speechSynthesis.cancel();
 }
 
-function loadVoices(){
-  const sel=document.getElementById('pres-voice');
-  sel.innerHTML='';
-  const voices=speechSynthesis.getVoices().filter(v=>v.lang.startsWith('ko'));
-  if(!voices.length){
-    // 음성 목록이 아직 안 불러와졌으면 대기
-    speechSynthesis.onvoiceschanged=()=>loadVoices();
-    sel.innerHTML='<option>음성 로딩 중...</option>';
-    return;
-  }
-  voices.forEach((v,i)=>{sel.innerHTML+=`<option value="${i}">${v.name}</option>`});
-}
-
-function getSelectedVoice(){
-  const voices=speechSynthesis.getVoices().filter(v=>v.lang.startsWith('ko'));
-  const idx=parseInt(document.getElementById('pres-voice').value)||0;
-  return voices[idx]||null;
-}
 
 function renderSlide(){
   const s=currentResult.sentences[presIdx];
@@ -400,37 +380,11 @@ function renderSlide(){
 }
 
 function prevSlide(){
-  speechSynthesis.cancel();
   if(presIdx>0){presIdx--;renderSlide();}
 }
 function nextSlide(){
-  speechSynthesis.cancel();
-  if(presIdx<currentResult.sentences.length-1){presIdx++;renderSlide();if(presAuto)speakCurrent();}
-  else{presAuto=false;document.getElementById('pres-play-btn').textContent='▶ 자동 재생';}
-}
-
-function toggleAutoPlay(){
-  presAuto=!presAuto;
-  document.getElementById('pres-play-btn').textContent=presAuto?'⏸ 일시정지':'▶ 자동 재생';
-  if(presAuto)speakCurrent();
-  else speechSynthesis.cancel();
-}
-
-function speakCurrent(){
-  if(!presAuto)return;
-  const s=currentResult.sentences[presIdx];
-  const text=s.voice_script||s.natural_korean||'';
-  if(!text){nextSlide();return;}
-
-  const utter=new SpeechSynthesisUtterance(text);
-  utter.lang='ko-KR';
-  utter.rate=0.9;
-  utter.pitch=1;
-  const voice=getSelectedVoice();
-  if(voice)utter.voice=voice;
-  utter.onend=()=>{if(presAuto)setTimeout(()=>nextSlide(),800)};
-  utter.onerror=()=>{if(presAuto)setTimeout(()=>nextSlide(),500)};
-  speechSynthesis.speak(utter);
+  if(presIdx<currentResult.sentences.length-1){presIdx++;renderSlide();}
+  else toast('마지막 슬라이드입니다');
 }
 
 // 키보드 조작
