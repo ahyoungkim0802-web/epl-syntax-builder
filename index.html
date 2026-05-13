@@ -164,10 +164,35 @@ textarea::placeholder{color:var(--ink-mute);font-style:italic}
   <div class="btn-row" style="margin-top:8px">
     <button class="btn btn-accent" onclick="downloadAll()">Download Full Script (.txt)</button>
     <button class="btn btn-secondary" onclick="copyAll()">Copy All Scripts</button>
+    <button class="btn btn-primary" onclick="startPresentation()">▶ 프레젠테이션 모드</button>
   </div>
 </div>
 
 </div>
+<!-- 프레젠테이션 모드 -->
+<div id="pres-overlay" style="display:none;position:fixed;inset:0;background:var(--paper);z-index:10000;flex-direction:column">
+  <!-- 상단 바 -->
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 32px;border-bottom:.5px solid var(--rule);flex-shrink:0">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-mute)">EPL Syntax Lecture · <span id="pres-counter">1/1</span></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <select id="pres-voice" style="border:none;border-bottom:.5px solid var(--rule);padding:4px 8px;font-family:'Noto Serif KR',serif;font-size:13px;background:transparent"></select>
+      <button class="btn btn-secondary" style="padding:8px 16px" onclick="prevSlide()">←</button>
+      <button class="btn btn-primary" style="padding:8px 16px" id="pres-play-btn" onclick="toggleAutoPlay()">▶ 자동 재생</button>
+      <button class="btn btn-secondary" style="padding:8px 16px" onclick="nextSlide()">→</button>
+      <button class="btn btn-secondary" style="padding:8px 16px" onclick="endPresentation()">✕ 닫기</button>
+    </div>
+  </div>
+  <!-- 슬라이드 영역 -->
+  <div id="pres-stage" style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px;overflow:hidden">
+    <div id="pres-slide" style="max-width:1000px;width:100%"></div>
+  </div>
+  <!-- 하단 스크립트 -->
+  <div id="pres-script-bar" style="padding:20px 32px;border-top:.5px solid var(--rule);background:var(--paper-card);flex-shrink:0;max-height:30vh;overflow-y:auto">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:8px">Voice Script</div>
+    <div id="pres-script-text" style="font-family:'Noto Serif KR',serif;font-size:16px;line-height:1.8;color:var(--ink-soft)"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -306,6 +331,116 @@ function copyAll(){
   const all=currentResult.sentences.map((s,i)=>`[${i+1}] ${s.original}\n${s.voice_script}`).join('\n\n---\n\n');
   navigator.clipboard.writeText(all).then(()=>toast('전체 스크립트 복사됨')).catch(()=>toast('복사 실패'));
 }
+/* ═══ 프레젠테이션 모드 ═══ */
+let presIdx=0, presAuto=false, presSpeaking=false;
+
+function startPresentation(){
+  if(!currentResult||!currentResult.sentences.length){toast('먼저 분석을 실행해주세요.');return}
+  presIdx=0;presAuto=false;
+  document.getElementById('pres-overlay').style.display='flex';
+  document.getElementById('pres-play-btn').textContent='▶ 자동 재생';
+  loadVoices();
+  renderSlide();
+}
+function endPresentation(){
+  document.getElementById('pres-overlay').style.display='none';
+  presAuto=false;
+  speechSynthesis.cancel();
+}
+
+function loadVoices(){
+  const sel=document.getElementById('pres-voice');
+  sel.innerHTML='';
+  const voices=speechSynthesis.getVoices().filter(v=>v.lang.startsWith('ko'));
+  if(!voices.length){
+    // 음성 목록이 아직 안 불러와졌으면 대기
+    speechSynthesis.onvoiceschanged=()=>loadVoices();
+    sel.innerHTML='<option>음성 로딩 중...</option>';
+    return;
+  }
+  voices.forEach((v,i)=>{sel.innerHTML+=`<option value="${i}">${v.name}</option>`});
+}
+
+function getSelectedVoice(){
+  const voices=speechSynthesis.getVoices().filter(v=>v.lang.startsWith('ko'));
+  const idx=parseInt(document.getElementById('pres-voice').value)||0;
+  return voices[idx]||null;
+}
+
+function renderSlide(){
+  const s=currentResult.sentences[presIdx];
+  const total=currentResult.sentences.length;
+  document.getElementById('pres-counter').textContent=`${presIdx+1}/${total}`;
+
+  // 슬라이드: 원문 + 청크
+  const chunksHtml=s.chunks.map(c=>`
+    <div style="flex:1 0 auto;min-width:100px;padding:20px 24px;border-right:.5px solid var(--rule);text-align:center">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:8px">${esc(c.role)}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:500;color:var(--ink);line-height:1.4;margin-bottom:10px">${esc(c.english)}</div>
+      <div style="width:80%;height:.5px;background:var(--rule);margin:0 auto 10px"></div>
+      <div style="font-family:'Noto Serif KR',serif;font-size:18px;color:var(--accent);line-height:1.5">${esc(c.korean)}</div>
+    </div>
+  `).join('');
+
+  const kpHtml=(s.key_points||[]).map(p=>esc(p)).join(' · ');
+
+  document.getElementById('pres-slide').innerHTML=`
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:12px">Sentence ${String(presIdx+1).padStart(2,'0')}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:500;color:var(--ink);line-height:1.5">${esc(s.original)}</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;border:.5px solid var(--rule);background:var(--paper-card);margin-bottom:24px">${chunksHtml}</div>
+    <div style="text-align:center">
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:22px;color:var(--ink-soft);margin-bottom:8px">→ ${esc(s.natural_korean)}</div>
+      ${kpHtml?`<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:.08em">${kpHtml}</div>`:''}
+    </div>
+  `;
+
+  document.getElementById('pres-script-text').textContent=s.voice_script||'';
+}
+
+function prevSlide(){
+  speechSynthesis.cancel();
+  if(presIdx>0){presIdx--;renderSlide();}
+}
+function nextSlide(){
+  speechSynthesis.cancel();
+  if(presIdx<currentResult.sentences.length-1){presIdx++;renderSlide();if(presAuto)speakCurrent();}
+  else{presAuto=false;document.getElementById('pres-play-btn').textContent='▶ 자동 재생';}
+}
+
+function toggleAutoPlay(){
+  presAuto=!presAuto;
+  document.getElementById('pres-play-btn').textContent=presAuto?'⏸ 일시정지':'▶ 자동 재생';
+  if(presAuto)speakCurrent();
+  else speechSynthesis.cancel();
+}
+
+function speakCurrent(){
+  if(!presAuto)return;
+  const s=currentResult.sentences[presIdx];
+  const text=s.voice_script||s.natural_korean||'';
+  if(!text){nextSlide();return;}
+
+  const utter=new SpeechSynthesisUtterance(text);
+  utter.lang='ko-KR';
+  utter.rate=0.9;
+  utter.pitch=1;
+  const voice=getSelectedVoice();
+  if(voice)utter.voice=voice;
+  utter.onend=()=>{if(presAuto)setTimeout(()=>nextSlide(),800)};
+  utter.onerror=()=>{if(presAuto)setTimeout(()=>nextSlide(),500)};
+  speechSynthesis.speak(utter);
+}
+
+// 키보드 조작
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('pres-overlay').style.display!=='flex')return;
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();nextSlide();}
+  if(e.key==='ArrowLeft'){e.preventDefault();prevSlide();}
+  if(e.key==='Escape')endPresentation();
+});
+
 function downloadAll(){
   if(!currentResult)return;
   let txt='EPL Syntax 강의 스크립트\n'+('='.repeat(50))+'\n\n';
