@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EPL Syntax 강의 생성기</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Noto+Serif+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1c1916;--ink-soft:#3a342e;--ink-mute:#6b635a;
+  --paper:#f3efe7;--paper-deep:#e9e3d6;--paper-card:#ffffff;
+  --line:#1c1916;--accent:#8a3a1e;--accent-soft:#b86b48;
+  --rule:rgba(28,25,22,0.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--paper);color:var(--ink);font-family:'Noto Serif KR',serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+
+.wrap{max-width:860px;margin:0 auto;padding:40px 28px 100px}
+
+/* ── 마스트헤드 ── */
+.mast{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:12px;border-bottom:.5px solid var(--line);margin-bottom:36px}
+.mast-brand{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:400;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-mute)}
+.mast-ver{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);letter-spacing:.1em}
+
+/* ── 타이틀 ── */
+.page-title{font-family:'Noto Serif KR',serif;font-weight:900;font-size:40px;line-height:1.25;letter-spacing:-.03em;margin-bottom:10px;color:var(--ink)}
+.page-title em{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;color:var(--accent)}
+.deck{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:17px;color:var(--ink-mute);max-width:540px;line-height:1.5;margin-bottom:36px}
+
+/* ── 입력 카드 ── */
+.input-card{background:var(--paper-card);border:.5px solid var(--rule);padding:32px;margin-bottom:32px}
+.input-card h2{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:16px}
+textarea{width:100%;border:none;border-bottom:.5px solid var(--rule);padding:12px 0;font-family:'Noto Serif KR',serif;font-size:16px;line-height:1.7;resize:vertical;min-height:120px;color:var(--ink);background:transparent;outline:none}
+textarea:focus{border-bottom-color:var(--accent)}
+textarea::placeholder{color:var(--ink-mute);font-style:italic}
+
+.controls{display:flex;gap:24px;flex-wrap:wrap;margin-top:20px;align-items:flex-end}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-group label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute)}
+.ctrl-group select{border:none;border-bottom:.5px solid var(--rule);padding:8px 24px 8px 0;font-family:'Noto Serif KR',serif;font-size:14px;color:var(--ink);background:transparent;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b635a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 4px center}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;transition:all .15s}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-primary{background:var(--ink);color:var(--paper)}
+.btn-primary:hover:not(:disabled){background:var(--ink-soft)}
+.btn-secondary{background:transparent;color:var(--ink);border:.5px solid var(--rule)}
+.btn-secondary:hover:not(:disabled){background:var(--paper-deep)}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-accent:hover:not(:disabled){background:var(--accent-soft)}
+
+.btn-row{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+
+/* ── 로딩 ── */
+.loading{display:none;text-align:center;padding:48px;color:var(--ink-mute);font-style:italic;font-size:15px}
+.loading.show{display:block}
+.pulse-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1.2s ease-in-out infinite;margin-right:10px;vertical-align:middle}
+@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}
+
+/* ── 출력: 문장 카드 ── */
+.sent-block{background:var(--paper-card);border:.5px solid var(--rule);margin-bottom:28px;page-break-inside:avoid}
+.sent-header{padding:20px 28px;border-bottom:.5px solid var(--rule)}
+.sent-num{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:6px}
+.sent-orig{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;color:var(--ink);line-height:1.5}
+
+/* ── 청크 시각화 ── */
+.chunks-row{display:flex;flex-wrap:wrap;border-bottom:.5px solid var(--rule)}
+.chunk-box{flex:1 0 auto;min-width:100px;padding:16px 20px;border-right:.5px solid var(--rule);text-align:center}
+.chunk-box:last-child{border-right:none}
+.chunk-role{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:6px}
+.chunk-en{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:500;color:var(--ink);line-height:1.4;margin-bottom:8px}
+.chunk-hr{width:80%;height:.5px;background:var(--rule);margin:0 auto 8px}
+.chunk-ko{font-family:'Noto Serif KR',serif;font-size:14px;font-weight:400;color:var(--accent);line-height:1.5}
+
+/* ── 자연 번역 ── */
+.natural-ko{padding:16px 28px;border-bottom:.5px solid var(--rule);font-size:15px;color:var(--ink-soft);display:flex;gap:10px;align-items:flex-start}
+.natural-ko-icon{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:18px;color:var(--accent);flex-shrink:0}
+
+/* ── 문법 포인트 ── */
+.key-points{padding:14px 28px;border-bottom:.5px solid var(--rule);font-size:13px;color:var(--ink-mute)}
+.key-points span{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-right:8px}
+
+/* ── 인강 스크립트 ── */
+.script-section{padding:20px 28px;position:relative}
+.script-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.script-text{font-family:'Noto Serif KR',serif;font-size:15px;line-height:1.8;color:var(--ink-soft);white-space:pre-line}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute);background:transparent;border:.5px solid var(--rule);padding:4px 12px;cursor:pointer;transition:all .15s}
+.copy-btn:hover{background:var(--ink);color:var(--paper)}
+
+/* ── 토스트 ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--paper);padding:10px 24px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;z-index:9999;transition:transform .3s;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── 인쇄 ── */
+@media print{
+  .input-card,.mast,.btn-row,.loading,.toast,.controls{display:none!important}
+  .sent-block{box-shadow:none;border:.5px solid #ccc}
+  body{background:#fff}
+}
+
+/* ── 반응형 ── */
+@media(max-width:640px){
+  .wrap{padding:20px 16px 60px}
+  .page-title{font-size:28px}
+  .controls{flex-direction:column;gap:16px}
+  .chunks-row{flex-direction:column}
+  .chunk-box{border-right:none;border-bottom:.5px solid var(--rule)}
+  .chunk-box:last-child{border-bottom:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- 마스트헤드 -->
+<div class="mast">
+  <div class="mast-brand">EPL System Tool / Syntax 강의 생성기</div>
+  <div class="mast-ver">v1.0</div>
+</div>
+
+<!-- 타이틀 -->
+<h1 class="page-title">문장을 <em>Slice</em> 하고,<br>강의를 만드세요.</h1>
+<p class="deck">Mappinglish CWK Reading 스타일의 청크 분석과 인강 녹음용 스크립트를 한 번에 생성합니다.</p>
+
+<!-- 입력 -->
+<div class="input-card">
+  <h2>Text Input</h2>
+  <textarea id="input-text" placeholder="영어 본문을 붙여넣으세요 (권장 3~6문장)"></textarea>
+  <div class="controls">
+    <div class="ctrl-group">
+      <label>Grade</label>
+      <select id="sel-grade">
+        <option>초등 고학년</option><option selected>중1</option><option>중2</option><option>중3</option><option>고1</option><option>고2~3</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Depth</label>
+      <select id="sel-depth">
+        <option>간단</option><option selected>표준</option><option>상세</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Tone</label>
+      <select id="sel-tone">
+        <option selected>차분·격조 (EPL 표준)</option><option>친근·설명형</option><option>간결·요점형</option>
+      </select>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="analyze-btn" onclick="analyze()">Analyze</button>
+    <button class="btn btn-secondary" onclick="resetAll()">Clear</button>
+  </div>
+</div>
+
+<!-- 로딩 -->
+<div class="loading" id="loading">
+  <span class="pulse-dot"></span>분석 중 · Mappinglish 톤으로 스크립트 생성 중
+</div>
+
+<!-- 출력 -->
+<div id="output"></div>
+
+<!-- 전체 스크립트 다운로드 -->
+<div id="dl-area" style="display:none">
+  <div class="btn-row" style="margin-top:8px">
+    <button class="btn btn-accent" onclick="downloadAll()">Download Full Script (.txt)</button>
+    <button class="btn btn-secondary" onclick="copyAll()">Copy All Scripts</button>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══ 상수 ═══ */
+const WORKER_URL = 'https://bitter-leaf-eb4d.ahyoungkim0802.workers.dev';
+
+let currentResult = null;
+
+/* ═══ 유틸 ═══ */
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1600)}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+function resetAll(){
+  document.getElementById('input-text').value='';
+  document.getElementById('output').innerHTML='';
+  document.getElementById('dl-area').style.display='none';
+  currentResult=null;
+}
+
+/* ═══ 분석 ═══ */
+async function analyze(){
+  const text=document.getElementById('input-text').value.trim();
+  if(!text){toast('본문을 입력해주세요.');return}
+  const grade=document.getElementById('sel-grade').value;
+  const depth=document.getElementById('sel-depth').value;
+  const tone=document.getElementById('sel-tone').value;
+  const btn=document.getElementById('analyze-btn');
+  const loading=document.getElementById('loading');
+
+  btn.disabled=true;loading.classList.add('show');
+  document.getElementById('output').innerHTML='';
+  document.getElementById('dl-area').style.display='none';
+
+  const systemPrompt=`당신은 한국 영어교육 전문가입니다. Mappinglish CWK Reading 스타일로 영어 문장을 청크 단위로 직독직해 분석하는 인강 강사입니다.
+
+다음 영어 본문을 분석하세요.
+
+[본문]
+${text}
+
+[설정]
+- 대상 학년: ${grade}
+- 분석 깊이: ${depth}
+- 강사 톤: ${tone}
+
+[출력 규칙]
+1. 반드시 아래 JSON 형식으로만 답하세요. 다른 텍스트, 마크다운 코드펜스, 설명 일절 금지.
+2. 본문의 모든 문장을 분석하세요.
+3. 청크는 의미 단위로 끊기 (S+V / V+O / 전치사구 / to부정사구 / 분사구 / 종속절 등).
+4. korean 필드는 자연스러운 한국어가 아닌, 청크의 직접적 직역 (예: "당신은" / "원하는가" / "무언가를 느끼기를").
+5. role은 매우 짧게 (예: "주어", "동사", "목적어", "보어", "수식어", "to부정사구", "전치사구", "관계절", "접속사").
+6. voice_script는 지정된 톤의 실제 인강 강사 멘트. 청크 분석 → 자연 번역 흐름. 150~250자. "~입니다 / ~예요"체.
+7. key_points는 해당 문장의 핵심 문법/구문 포인트 1~2개.
+8. 접속사(but/and/so)로 연결된 복합문은 각 절을 별도 문장으로 분리하세요.
+9. 전치사구(on/in/at/with/for 등)는 반드시 독립 청크로 분리합니다.
+
+[JSON 형식]
+{"sentences":[{"original":"원본 영어","chunks":[{"english":"영어 청크","korean":"직역","role":"역할"}],"natural_korean":"자연 번역","key_points":["포인트"],"voice_script":"강의 스크립트"}]}`;
+
+  try{
+    const res=await fetch(WORKER_URL,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:8192,system:systemPrompt,messages:[{role:'user',content:'위 본문을 분석해 지정된 JSON 형식으로만 응답하세요.'}]})
+    });
+    const data=await res.json();
+    let raw='';
+    if(data.content&&data.content[0])raw=data.content[0].text;
+    else if(data.error)throw new Error(data.error.message||data.error);
+    else throw new Error('응답 형식 오류');
+
+    raw=raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+    // 첫 { ~ 마지막 } 추출
+    const fi=raw.indexOf('{'),li=raw.lastIndexOf('}');
+    if(fi>=0&&li>fi)raw=raw.substring(fi,li+1);
+    const parsed=JSON.parse(raw);
+    if(!parsed.sentences)throw new Error('sentences 배열 없음');
+
+    currentResult=parsed;
+    renderOutput(parsed);
+    document.getElementById('dl-area').style.display='block';
+    toast('분석 완료 · '+parsed.sentences.length+'개 문장');
+  }catch(e){
+    console.error('Error:',e);
+    document.getElementById('output').innerHTML=`<div class="input-card" style="text-align:center;padding:32px"><p style="margin-bottom:16px;color:var(--accent)">⚠ ${esc(e.message)}</p><button class="btn btn-primary" onclick="analyze()">다시 시도</button></div>`;
+  }finally{
+    btn.disabled=false;loading.classList.remove('show');
+  }
+}
+
+// Ctrl+Enter 단축키
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')analyze()});
+
+/* ═══ 렌더링 ═══ */
+function renderOutput(data){
+  const out=document.getElementById('output');
+  out.innerHTML='';
+
+  data.sentences.forEach((s,i)=>{
+    const chunksHtml=s.chunks.map(c=>`
+      <div class="chunk-box">
+        <div class="chunk-role">${esc(c.role)}</div>
+        <div class="chunk-en">${esc(c.english)}</div>
+        <div class="chunk-hr"></div>
+        <div class="chunk-ko">${esc(c.korean)}</div>
+      </div>
+    `).join('');
+
+    const kpHtml=(s.key_points||[]).map(p=>`<span>Point</span>${esc(p)}`).join(' &nbsp;| &nbsp;');
+
+    out.innerHTML+=`
+      <div class="sent-block">
+        <div class="sent-header">
+          <div class="sent-num">Sentence ${String(i+1).padStart(2,'0')}</div>
+          <div class="sent-orig">${esc(s.original)}</div>
+        </div>
+        <div class="chunks-row">${chunksHtml}</div>
+        <div class="natural-ko"><span class="natural-ko-icon">→</span><span>${esc(s.natural_korean)}</span></div>
+        ${kpHtml?`<div class="key-points">${kpHtml}</div>`:''}
+        <div class="script-section">
+          <div class="script-label"><span>Voice Script</span><button class="copy-btn" onclick="copyScript(${i})">Copy</button></div>
+          <div class="script-text" id="script-${i}">${esc(s.voice_script)}</div>
+        </div>
+      </div>
+    `;
+  });
+}
+
+/* ═══ 복사 / 다운로드 ═══ */
+function copyScript(i){
+  if(!currentResult)return;
+  const t=currentResult.sentences[i].voice_script;
+  navigator.clipboard.writeText(t).then(()=>toast('복사됨')).catch(()=>toast('복사 실패'));
+}
+function copyAll(){
+  if(!currentResult)return;
+  const all=currentResult.sentences.map((s,i)=>`[${i+1}] ${s.original}\n${s.voice_script}`).join('\n\n---\n\n');
+  navigator.clipboard.writeText(all).then(()=>toast('전체 스크립트 복사됨')).catch(()=>toast('복사 실패'));
+}
+function downloadAll(){
+  if(!currentResult)return;
+  let txt='EPL Syntax 강의 스크립트\n'+('='.repeat(50))+'\n\n';
+  currentResult.sentences.forEach((s,i)=>{
+    txt+=`[문장 ${i+1}] ${s.original}\n\n`;
+    txt+=`[청크 분석]\n`;
+    s.chunks.forEach(c=>{txt+=`  ${c.role}: ${c.english} → ${c.korean}\n`});
+    txt+=`\n[자연 번역] ${s.natural_korean}\n`;
+    if(s.key_points&&s.key_points.length)txt+=`[문법 포인트] ${s.key_points.join(' / ')}\n`;
+    txt+=`\n[강의 스크립트]\n${s.voice_script}\n\n${'─'.repeat(40)}\n\n`;
+  });
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='EPL_강의스크립트.txt';
+  a.click();URL.revokeObjectURL(a.href);
+  toast('다운로드 완료');
+}
+</script>
+</body>
+</html>
